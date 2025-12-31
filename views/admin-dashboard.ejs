@@ -1,0 +1,72 @@
+<%- include('partials/header') %>
+<main class="container mx-auto px-6 pt-32 pb-40">
+    <div class="flex justify-between items-end mb-12">
+        <div>
+            <h1 class="text-4xl font-bold tracking-tighter uppercase">Command Center</h1>
+            <p class="text-zinc-500 italic">Welcome back, <%= user.name %></p>
+        </div>
+        <a href="/logout" class="text-red-600 text-xs font-bold border-b border-red-600 pb-1">TERMINATE SESSION</a>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-10">
+        <!-- Form Upload -->
+        <div class="lg:col-span-1">
+            <div class="glass p-8 rounded-[2.5rem] sticky top-32">
+                <h3 class="text-xl font-bold mb-6">NEW REPOSITORY</h3>
+                <form action="/admin/upload" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    <input type="text" name="name" placeholder="Project Name" class="w-full bg-zinc-900 rounded-2xl px-5 py-3 outline-none" required>
+                    <input type="text" name="language" placeholder="Language (e.g. Node.js)" class="w-full bg-zinc-900 rounded-2xl px-5 py-3 outline-none" required>
+                    
+                    <select name="type" id="projectType" class="w-full bg-zinc-900 rounded-2xl px-5 py-3 outline-none">
+                        <option value="CODE">CODE (Snippet)</option>
+                        <option value="FILE">FILE (Zip/Image)</option>
+                    </select>
+
+                    <div id="codeField">
+                        <textarea name="content" placeholder="Paste your code here..." class="w-full bg-zinc-900 rounded-2xl px-5 py-3 outline-none h-32 font-mono text-sm"></textarea>
+                    </div>
+
+                    <div id="fileField" class="hidden">
+                        <label class="block text-[10px] text-zinc-500 ml-4 mb-2 uppercase">Preview / File</label>
+                        <input type="file" name="file" class="text-sm">
+                    </div>
+
+                    <textarea name="notes" placeholder="Developer Notes (Optional)" class="w-full bg-zinc-900 rounded-2xl px-5 py-3 outline-none h-24"></textarea>
+                    
+                    <button type="submit" class="btn-red w-full">DEPLOY PROJECT</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Project List -->
+        <div class="lg:col-span-2 space-y-4">
+            <h3 class="text-xl font-bold mb-6">LIVE REPOSITORIES</h3>
+            <% projects.forEach(p => { %>
+            <div class="glass p-6 rounded-[2rem] flex justify-between items-center border-l-4 border-red-600">
+                <div>
+                    <h4 class="font-bold"><%= p.name %></h4>
+                    <p class="text-xs text-zinc-500 mt-1"><%= p.language %> • <%= p.likes %> Likes</p>
+                </div>
+                <div class="flex gap-4">
+                    <form action="/admin/delete/<%= p._id %>" method="POST" onsubmit="return confirm('Hapus proyek ini?')">
+                        <button class="text-zinc-600 hover:text-red-600 transition text-xs font-bold uppercase">Delete</button>
+                    </form>
+                </div>
+            </div>
+            <% }) %>
+        </div>
+    </div>
+</main>
+
+<script>
+    document.getElementById('projectType').addEventListener('change', function() {
+        if(this.value === 'FILE') {
+            document.getElementById('fileField').classList.remove('hidden');
+            document.getElementById('codeField').classList.add('hidden');
+        } else {
+            document.getElementById('fileField').classList.add('hidden');
+            document.getElementById('codeField').classList.remove('hidden');
+        }
+    });
+</script>
+<%- include('partials/footer') %>
