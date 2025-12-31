@@ -1,0 +1,24 @@
+<%- include('partials/header') %>
+<main class="h-screen flex items-center justify-center px-6">
+    <div class="glass p-10 rounded-[2.5rem] w-full max-w-md red-glow border-red-600/20">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold tracking-tighter">TERMINAL ACCESS</h2>
+            <p class="text-xs text-zinc-500 mt-2 uppercase tracking-widest">Authorized Personnel Only</p>
+        </div>
+        
+        <form action="/login" method="POST" class="space-y-6">
+            <div>
+                <label class="block text-[10px] text-zinc-500 uppercase mb-2 ml-4">Username</label>
+                <input type="text" name="username" required
+                       class="w-full bg-black border border-zinc-800 rounded-full px-6 py-3 focus:border-red-600 outline-none transition-all font-mono">
+            </div>
+            <div>
+                <label class="block text-[10px] text-zinc-500 uppercase mb-2 ml-4">Password</label>
+                <input type="password" name="password" required
+                       class="w-full bg-black border border-zinc-800 rounded-full px-6 py-3 focus:border-red-600 outline-none transition-all font-mono">
+            </div>
+            <button type="submit" class="btn-red w-full py-4 mt-4">BYPASS SYSTEM</button>
+        </form>
+    </div>
+</main>
+<%- include('partials/footer') %>
