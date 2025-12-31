@@ -1,0 +1,54 @@
+<%- include('partials/header') %>
+
+<main class="container mx-auto px-6 pt-20">
+    <div class="text-center mb-12">
+        <h1 class="text-6xl font-bold mb-4 tracking-tighter">&lt;/&gt; SOURCE CODE</h1>
+        <p class="text-zinc-500">Premium Project Repository. Open. Free. Fast.</p>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="max-w-2xl mx-auto mb-16">
+        <input type="text" id="searchInput" placeholder="Cari Proyek (React, Python, Tool...)" 
+               class="w-full bg-zinc-900 border-2 border-zinc-800 rounded-full px-8 py-4 focus:border-red-600 outline-none transition-all">
+    </div>
+
+    <!-- Project List -->
+    <div id="projectGrid" class="grid grid-cols-1 gap-6">
+        <% projects.forEach(project => { %>
+        <a href="/project/<%= project._id %>" class="cyber-card p-6 flex items-center justify-between">
+            <div>
+                <span class="text-xs text-red-600 font-mono mb-1 block"><%= project.language %></span>
+                <h3 class="text-2xl font-bold"><%= project.name %></h3>
+            </div>
+            <div class="flex gap-8 text-zinc-500">
+                <div class="flex items-center gap-2">❤️ <span id="like-<%= project._id %>"><%= project.likes %></span></div>
+                <div class="flex items-center gap-2">⬇️ <%= project.downloads %></div>
+                <div class="bg-zinc-800 px-4 py-1 rounded-full text-xs text-white"><%= project.type %></div>
+            </div>
+        </a>
+        <% }) %>
+    </div>
+
+    <!-- Chat Admin Section -->
+    <section class="mt-32 pb-20">
+        <h2 class="text-3xl font-bold mb-8 text-center">DIRECT MESSAGE</h2>
+        <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            <!-- SilverHold -->
+            <div class="cyber-card p-8 text-center">
+                <img src="/path-to-silver.jpg" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-red-600">
+                <h4 class="text-xl font-bold">SilverHold Official</h4>
+                <p class="text-xs text-zinc-500 mt-2 italic">"Jangan lupa sholat..."</p>
+                <button onclick="openChat('SilverHold')" class="btn-red mt-6 w-full">CHAT ADMIN</button>
+            </div>
+            <!-- Brayn -->
+            <div class="cyber-card p-8 text-center">
+                <img src="/path-to-brayn.jpg" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-red-600">
+                <h4 class="text-xl font-bold">Brayn Official</h4>
+                <p class="text-xs text-zinc-500 mt-2 italic">"Tidak Semua Orang Suka..."</p>
+                <button onclick="openChat('Brayn')" class="btn-red mt-6 w-full">CHAT OWNER</button>
+            </div>
+        </div>
+    </section>
+</main>
+
+<%- include('partials/footer') %>
