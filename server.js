@@ -21,7 +21,12 @@ const CLOUDINARY_CONFIG = {
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// Optimasi Socket.io untuk Vercel (mencegah unhandled rejection)
+const io = new Server(server, {
+    cors: { origin: "*" },
+    connectionStateRecovery: {}
+});
 
 // ==========================================
 // 2. DATABASE CONNECTION
@@ -30,9 +35,8 @@ const connectDB = async () => {
     if (mongoose.connection.readyState >= 1) return;
     try {
         await mongoose.connect(MONGO_URI);
-        console.log(">>> Cyber Database Linked");
     } catch (err) {
-        console.error("!!! DB Connection Error:", err);
+        console.error("MongoDB Error:", err.message);
     }
 };
 
@@ -53,22 +57,24 @@ const Project = mongoose.models.Project || mongoose.model('Project', new mongoos
 }));
 
 // ==========================================
-// 4. CLOUDINARY & MULTER (FIXED FOR ALL FILES)
+// 4. CLOUDINARY & MULTER CONFIG
 // ==========================================
 cloudinary.config(CLOUDINARY_CONFIG);
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
-    params: { 
-        folder: 'sourcecodehub',
-        resource_type: 'auto', // PENTING: Agar bisa upload ZIP, RAR, PDF, dll.
-        allowed_formats: ['jpg', 'png', 'jpeg', 'zip', 'rar', 'pdf', 'txt', 'html', 'js']
-    }
+    params: async (req, file) => {
+        return {
+            folder: 'sourcecodehub',
+            resource_type: 'auto', // PENTING: Mendukung zip, rar, dll
+            public_id: file.originalname.split('.')[0] + '-' + Date.now(),
+        };
+    },
 });
 
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // Limit 10MB (Vercel max body is ~4.5MB)
+    limits: { fileSize: 4 * 1024 * 1024 } // Batasi 4MB karena limit Vercel adalah 4.5MB
 });
 
 // ==========================================
@@ -80,7 +86,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(session({
-    secret: 'cyber-hold-secret-key-99',
+    secret: 'cyber-hold-secret-key-brayn-silver',
     resave: false,
     saveUninitialized: true
 }));
@@ -91,55 +97,47 @@ app.use(async (req, res, next) => {
 });
 
 // ==========================================
-// 6. ROUTES
+// 6. PUBLIC ROUTES
 // ==========================================
 
 app.get('/', async (req, res) => {
-    const projects = await Project.find().sort({ createdAt: -1 });
-    res.render('home', { projects });
+    try {
+        const projects = await Project.find().sort({ createdAt: -1 });
+        res.render('home', { projects });
+    } catch (e) { res.send("Error"); }
 });
 
 app.get('/project/:id', async (req, res) => {
-    const project = await Project.findById(req.params.id);
-    if (!project) return res.redirect('/');
-    res.render('project-detail', { project });
+    try {
+        const project = await Project.findById(req.params.id);
+        res.render('project-detail', { project });
+    } catch (e) { res.redirect('/'); }
 });
 
 app.get('/download/:id', async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
-        if (!project) return res.status(404).send("Not Found");
-
+        if (!project) return res.send("Not Found");
         project.downloads += 1;
         await project.save();
 
         if (project.type === 'CODE') {
-            const fileName = `${project.name.replace(/\s+/g, '_')}_code.txt`;
+            const fileName = `${project.name.replace(/\s+/g, '_')}.txt`;
             res.setHeader('Content-disposition', 'attachment; filename=' + fileName);
             res.setHeader('Content-type', 'text/plain');
-            res.write(project.content || "");
-            res.end();
-        } else {
-            if (project.previewUrl) {
-                res.redirect(project.previewUrl);
-            } else {
-                res.status(404).send("File tidak tersedia");
-            }
-        }
-    } catch (err) {
-        res.status(500).send("Error");
-    }
+            return res.send(project.content || "");
+        } 
+        res.redirect(project.previewUrl);
+    } catch (err) { res.status(500).send("Error"); }
 });
 
 app.get('/profile', async (req, res) => {
     const totalProjects = await Project.countDocuments();
-    const all = await Project.find();
-    const totalLikes = all.reduce((a, b) => a + (b.likes || 0), 0);
     const adminData = {
         silver: { name: "SilverHold Official", quote: "Jangan lupa sholat...", hashtags: ["#bismillahcalonustad"], photoUrl: "https://via.placeholder.com/150" },
         brayn: { name: "Brayn Official", quote: "Tidak Semua Orang Suka...", hashtags: ["#backenddev"], photoUrl: "https://via.placeholder.com/150" }
     };
-    res.render('profile', { admin: adminData.silver, owner: adminData.brayn, totalProjects, totalLikes, isOwnerSession: !!req.session.adminId });
+    res.render('profile', { admin: adminData.silver, owner: adminData.brayn, totalProjects, totalLikes: 0, isOwnerSession: !!req.session.adminId });
 });
 
 // ==========================================
@@ -163,36 +161,35 @@ app.get('/admin/dashboard', async (req, res) => {
     res.render('admin-dashboard', { user: { name: req.session.adminId }, projects });
 });
 
-// PROSES UPLOAD DENGAN TRY-CATCH KUAT
-app.post('/admin/upload', upload.single('file'), async (req, res) => {
+// --- FIXED UPLOAD HANDLER ---
+app.post('/admin/upload', (req, res) => {
     if (!req.session.adminId) return res.status(403).send("Unauthorized");
-    
-    try {
-        const { name, language, type, content, notes } = req.body;
-        
-        // Ambil URL dari Cloudinary jika ada file yang diupload
-        let fileUrl = "";
-        if (req.file) {
-            fileUrl = req.file.path;
+
+    // Gunakan fungsi multer secara manual untuk menangkap error Cloudinary/Size
+    upload.single('file')(req, res, async (err) => {
+        if (err) {
+            console.error("MULTER ERROR:", err);
+            return res.status(500).send(`Upload Error: ${err.message}. Pastikan file < 4MB.`);
         }
 
-        await Project.create({
-            name, 
-            language, 
-            type, 
-            content: content || "", 
-            notes: notes || "",
-            previewUrl: fileUrl,
-            authorName: req.session.adminId,
-            downloads: 0, 
-            likes: 0
-        });
+        try {
+            const { name, language, type, content, notes } = req.body;
+            const fileUrl = req.file ? req.file.path : '';
 
-        res.redirect('/admin/dashboard');
-    } catch (err) {
-        console.error("UPLOAD ERROR DETAIL:", err);
-        res.status(500).send("Upload Gagal: " + err.message);
-    }
+            await Project.create({
+                name, language, type, 
+                content: content || "", 
+                notes: notes || "",
+                previewUrl: fileUrl,
+                authorName: req.session.adminId
+            });
+
+            res.redirect('/admin/dashboard');
+        } catch (dbErr) {
+            console.error("DB ERROR:", dbErr);
+            res.status(500).send("Gagal menyimpan ke Database.");
+        }
+    });
 });
 
 app.post('/admin/delete/:id', async (req, res) => {
@@ -210,9 +207,7 @@ app.get('/logout', (req, res) => {
 // 8. REAL-TIME
 // ==========================================
 io.on('connection', (socket) => {
-    socket.on('send-chat', (data) => {
-        io.emit('receive-chat', data);
-    });
+    socket.on('send-chat', (data) => io.emit('receive-chat', data));
     socket.on('like-project', async (id) => {
         const p = await Project.findByIdAndUpdate(id, { $inc: { likes: 1 } }, { new: true });
         if (p) io.emit('update-stats', { id: p._id, likes: p.likes });
@@ -220,7 +215,7 @@ io.on('connection', (socket) => {
 });
 
 // ==========================================
-// 9. EXPORT
+// 9. EXPORT FOR VERCEL
 // ==========================================
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== 'production') {
